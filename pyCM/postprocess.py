@@ -889,11 +889,28 @@ class pp_interactor(QtWidgets.QWidget):
 	def C3D10_quadrature_points(self):
 		"""
 		Define the natural coordinates of the quadrature points for C3D10.
-		The element has 10 nodes and 4 quadrature points.
+		The element has 10 nodes and 4 quadrature points therefore direct recovery is not possible.
+		Here we use the patch recovery method:
+
+		for the bilinear implementation each quadrature point (n) has parameters:
+		P[n] = [1, x, y, z, xy, xz, yz]
+
+		we then solve
+		A = \sum_{n+1}^N P_i^T P_i
+		b = \sum_{i+1} P_i^T \sigma_i
+
+		Aa = b
+		\sigma_p = Pa
+
+		where \sigma_i is the quadrature point stresses,
+		and \sigma_p are the recovered nodal stresses.
+
+		Returns:
+			P {11x4} matrix consisting of bilinear constants for each quadrature point
 		"""
 
-		# create the square shape function matrix
-		shape_function_matrix = np.zeros(shape=(4, 10))
+		# create the parameter matrix
+		P = np.zeros(shape=(4, 11))
 
 		# natural coordinates of the quadrature points
 		nat_coord_quadrature_points = np.array([[(5+3*(5)**(0.5)), (5-(5)**(0.5)), (5-(5)**(0.5)), (5-(5)**(0.5))], \
@@ -903,31 +920,21 @@ class pp_interactor(QtWidgets.QWidget):
 
 		nat_coord_quadrature_points = nat_coord_quadrature_points / 20
 
-		# apply the shape functions to the natural coordinates
-		# and built the matrix
-		for shape_matrix_index in range(0, 4):
-			shape_function_matrix[shape_matrix_index, 0] = nat_coord_quadrature_points[shape_matrix_index, 0] \
-														* (2 * nat_coord_quadrature_points[shape_matrix_index, 0] - 1)
-			shape_function_matrix[shape_matrix_index, 1] = nat_coord_quadrature_points[shape_matrix_index, 1] \
-														* (2 * nat_coord_quadrature_points[shape_matrix_index, 1] - 1)
-			shape_function_matrix[shape_matrix_index, 2] = nat_coord_quadrature_points[shape_matrix_index, 2] \
-														* (2 * nat_coord_quadrature_points[shape_matrix_index, 2] - 1)
-			shape_function_matrix[shape_matrix_index, 3] = nat_coord_quadrature_points[shape_matrix_index, 3] \
-														* (2 * nat_coord_quadrature_points[shape_matrix_index, 3] - 1)
-			shape_function_matrix[shape_matrix_index, 4] = 4 * nat_coord_quadrature_points[shape_matrix_index, 0] \
-														* nat_coord_quadrature_points[shape_matrix_index, 1]
-			shape_function_matrix[shape_matrix_index, 5] = 4 * nat_coord_quadrature_points[shape_matrix_index, 1] \
-														* nat_coord_quadrature_points[shape_matrix_index, 2]
-			shape_function_matrix[shape_matrix_index, 6] = 4 * nat_coord_quadrature_points[shape_matrix_index, 2] \
-														* nat_coord_quadrature_points[shape_matrix_index, 0]
-			shape_function_matrix[shape_matrix_index, 7] = 4 * nat_coord_quadrature_points[shape_matrix_index, 0] \
-														* nat_coord_quadrature_points[shape_matrix_index, 3]
-			shape_function_matrix[shape_matrix_index, 8] = 4 * nat_coord_quadrature_points[shape_matrix_index, 1] \
-														* nat_coord_quadrature_points[shape_matrix_index, 3]
-			shape_function_matrix[shape_matrix_index, 9] = 4 * nat_coord_quadrature_points[shape_matrix_index, 2] \
-														* nat_coord_quadrature_points[shape_matrix_index, 3]
+		# built the parameter matrix
+		for indx in range(0, 4):
+			P[indx, 0] = 1.
+			P[indx, 1] = nat_coord_quadrature_points[indx, 0]
+			P[indx, 2] = nat_coord_quadrature_points[indx, 1]
+			P[indx, 3] = nat_coord_quadrature_points[indx, 2]
+			P[indx, 4] = nat_coord_quadrature_points[indx, 3]
+			P[indx, 5] = nat_coord_quadrature_points[indx, 0] * nat_coord_quadrature_points[indx, 1]
+			P[indx, 6] = nat_coord_quadrature_points[indx, 0] * nat_coord_quadrature_points[indx, 2]
+			P[indx, 7] = nat_coord_quadrature_points[indx, 0] * nat_coord_quadrature_points[indx, 3]
+			P[indx, 8] = nat_coord_quadrature_points[indx, 1] * nat_coord_quadrature_points[indx, 2]
+			P[indx, 9] = nat_coord_quadrature_points[indx, 1] * nat_coord_quadrature_points[indx, 3]
+			P[indx, 10] = nat_coord_quadrature_points[indx, 2] * nat_coord_quadrature_points[indx, 3]
 
-		return shape_function_matrix
+		return P
 
 	def Keypress(self,obj, event):
 		key = obj.GetKeySym()
